@@ -1,9 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity.js';
+import { User, UserRole } from './entities/user.entity.js';
 import { RegisterDto } from '../auth/dto/register.dto.js';
-import { UserRole } from '../common/enums/roles.enums.js';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -14,22 +13,24 @@ export class UsersService {
   ) {}
 
   async create(registerDto: RegisterDto): Promise<User> {
-    const existingUser = await this.findByEmail(registerDto.email);
-    if (existingUser) {
-      throw new ConflictException('El correo electrónico ya está registrado');
-    }
+    const { fullName, email, password, role, phone, specialty } = registerDto;
 
-    const salt = await bcrypt.genSalt();
-    const passwordHash = await bcrypt.hash(registerDto.password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = this.userRepository.create({
-      email: registerDto.email,
-      passwordHash,
-      fullName: registerDto.fullName,
-      role: UserRole.CLIENT, // Asignado de forma segura por el servidor
+      fullName,
+      email,
+      password: hashedPassword,
+      role: role || UserRole.CLIENT,
+      phone,
+      specialty,
     });
 
     return await this.userRepository.save(newUser);
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findOne({ where: { email } });
   }
 
   async findAll(): Promise<User[]> {
@@ -39,20 +40,13 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
     return user;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return await this.userRepository.findOne({ where: { email } });
-  }
-
-  async findById(id: string): Promise<User | null> {
-    return await this.userRepository.findOne({ where: { id } });
-  }
-
-  async update(id: string, updateData: any): Promise<User> {
+  async update(id: string, updateData: Partial<User>): Promise<User> {
+    await this.findOne(id);
     await this.userRepository.update(id, updateData);
     return this.findOne(id);
   }

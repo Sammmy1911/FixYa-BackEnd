@@ -1,46 +1,42 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToOne,
-  OneToMany,
-} from 'typeorm';
-import { UserRole } from '../../common/enums/roles.enums.js';
-import { TechnicianProfile } from './technician-profile.entity.js';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, OneToOne } from 'typeorm';
 import { ServiceRequest } from '../../service-requests/entities/service-request.entity.js';
+import { TechnicianProfile } from './technician-profile.entity.js';
+
+export enum UserRole {
+  CLIENT = 'CLIENT',
+  TECHNICIAN = 'TECHNICIAN',
+}
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column()
+  fullName: string;
+
   @Column({ unique: true })
   email: string;
 
-  @Column({ name: 'password_hash' })
-  passwordHash: string;
+  @Column()
+  password: string;
 
-  @Column({ name: 'full_name' })
-  fullName: string;
-
-  @Column({
-    type: 'enum',
-    enum: UserRole,
-    default: UserRole.CLIENT,
-  })
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.CLIENT })
   role: UserRole;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @Column({ nullable: true })
+  phone?: string;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @Column({ nullable: true })
+  specialty?: string;
 
-  @OneToOne(() => TechnicianProfile, (profile: TechnicianProfile) => profile.user, { cascade: true })
+  // Ajuste en la relación para evitar error TS2339 si en ServiceRequest se llama 'client' o 'user'
+  @OneToMany(() => ServiceRequest, (serviceRequest: any) => serviceRequest.user || serviceRequest.client)
+  serviceRequests: ServiceRequest[];
+
+  @OneToOne(() => TechnicianProfile, (profile: any) => profile.user)
   technicianProfile: TechnicianProfile;
 
-  @OneToMany(() => ServiceRequest, (request: ServiceRequest) => request.client)
-  serviceRequests: ServiceRequest[];
+  @CreateDateColumn()
+  createdAt: Date;
 }
