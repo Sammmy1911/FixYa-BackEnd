@@ -1,9 +1,9 @@
-import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,UpdateDateColumn,ManyToOne,JoinColumn,
+import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,UpdateDateColumn,ManyToOne,JoinColumn,type Relation,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
-import { TechnicianProfile } from '../../users/entities/technician-profile.entity';
-import { Category } from '../../categories/entities/category.entity';
-import { ServiceStatus } from '../../common/enums/service-status.enum';
+import { User } from '../../users/entities/user.entity.js';
+import { TechnicianProfile } from '../../users/entities/technician-profile.entity.js';
+import { Category } from '../../categories/entities/category.entity.js';
+import { ServiceStatus } from '../../common/enums/service-status.enum.js';
 
 @Entity('service_requests')
 export class ServiceRequest {
@@ -31,13 +31,13 @@ export class ServiceRequest {
 
   @ManyToOne(() => User, (user) => user.serviceRequests, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'client_id' })
-  client: User;
+  client: Relation<User>;
 
   @ManyToOne(() => TechnicianProfile, (profile) => profile.assignedRequests, { nullable: true })
   @JoinColumn({ name: 'technician_id' })
-  technician: TechnicianProfile;
+  technician: Relation<TechnicianProfile>;
 
   @ManyToOne(() => Category, (category) => category.serviceRequests)
   @JoinColumn({ name: 'category_id' })
-  category: Category;
+  category: Relation<Category>;
 }

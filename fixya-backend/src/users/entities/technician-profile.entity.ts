@@ -1,7 +1,7 @@
-import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,OneToOne,JoinColumn,OneToMany,
+import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,OneToOne,JoinColumn,OneToMany,type Relation,
 } from 'typeorm';
-import { User } from './user.entity';
-import { ServiceRequest } from '../../service-requests/entities/service-request.entity';
+import { User } from './user.entity.js';
+import { ServiceRequest } from '../../service-requests/entities/service-request.entity.js';
 
 @Entity('technician_profiles')
 export class TechnicianProfile {
@@ -22,7 +22,7 @@ export class TechnicianProfile {
 
   @OneToOne(() => User, (user) => user.technicianProfile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @OneToMany(() => ServiceRequest, (request) => request.technician)
   assignedRequests: ServiceRequest[];
