@@ -26,7 +26,7 @@ export class UsersService {
       email: registerDto.email,
       passwordHash,
       fullName: registerDto.fullName,
-      role: registerDto.role || UserRole.CLIENT,
+      role: UserRole.CLIENT, // Asignado de forma segura por el servidor
     });
 
     return await this.userRepository.save(newUser);
