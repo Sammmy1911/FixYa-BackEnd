@@ -1,26 +1,64 @@
-import { Injectable } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity.js';
+import { RegisterDto } from '../auth/dto/register.dto.js';
+import { UserRole } from '../common/enums/roles.enums.js';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async create(registerDto: RegisterDto): Promise<User> {
+    const existingUser = await this.findByEmail(registerDto.email);
+    if (existingUser) {
+      throw new ConflictException('El correo electrónico ya está registrado');
+    }
+
+    const salt = await bcrypt.genSalt();
+    const passwordHash = await bcrypt.hash(registerDto.password, salt);
+
+    const newUser = this.userRepository.create({
+      email: registerDto.email,
+      passwordHash,
+      fullName: registerDto.fullName,
+      role: registerDto.role || UserRole.CLIENT,
+    });
+
+    return await this.userRepository.save(newUser);
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findAll(): Promise<User[]> {
+    return await this.userRepository.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return user;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findOne({ where: { email } });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async findById(id: string): Promise<User | null> {
+    return await this.userRepository.findOne({ where: { id } });
+  }
+
+  async update(id: string, updateData: any): Promise<User> {
+    await this.userRepository.update(id, updateData);
+    return this.findOne(id);
+  }
+
+  async remove(id: string): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
   }
 }

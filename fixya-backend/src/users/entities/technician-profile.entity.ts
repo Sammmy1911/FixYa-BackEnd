@@ -1,7 +1,16 @@
-import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,OneToOne,JoinColumn,OneToMany,
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  OneToOne,
+  JoinColumn,
+  OneToMany,
 } from 'typeorm';
-import { User } from './user.entity';
-import { ServiceRequest } from '../../service-requests/entities/service-request.entity';
+
+import type { Relation } from 'typeorm';
+import type { User } from './user.entity.js';
+import type { ServiceRequest } from '../../service-requests/entities/service-request.entity.js';
 
 @Entity('technician_profiles')
 export class TechnicianProfile {
@@ -14,16 +23,29 @@ export class TechnicianProfile {
   @Column({ default: false, name: 'is_verified' })
   isVerified: boolean;
 
-  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.0, name: 'rating_average' })
+  @Column({
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    default: 0.0,
+    name: 'rating_average',
+  })
   ratingAverage: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @OneToOne(() => User, (user) => user.technicianProfile, { onDelete: 'CASCADE' })
+  @OneToOne(
+    'User',
+    (user: User) => user.technicianProfile,
+    { onDelete: 'CASCADE' },
+  )
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
-  @OneToMany(() => ServiceRequest, (request) => request.technician)
-  assignedRequests: ServiceRequest[];
+  @OneToMany(
+    'ServiceRequest',
+    (request: ServiceRequest) => request.technician,
+  )
+  assignedRequests: Relation<ServiceRequest[]>;
 }

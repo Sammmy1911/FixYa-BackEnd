@@ -1,30 +1,52 @@
-import { Module } from '@nestjs/common';
-import { createObserveModule } from '@nestjs/observe';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
-import { UsersModule } from './users/users.module.js';
-import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
-import { CategoriesModule } from './categories/categories.module.js';
-import { AuthModule } from './auth/auth.module.js';
-import { UsersModule } from './users/users.module.js';
 
-export const { ObserveModule, ObserveInstrument } = createObserveModule();
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { UsersModule } from './users/users.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { CategoriesModule } from './categories/categories.module.js';
+import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
 
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'fixya-backend',
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: `${process.cwd()}/.env`,
+      ignoreEnvFile: false,
     }),
+
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+
+        if (!databaseUrl) {
+          throw new Error(
+            'DATABASE_URL no está definida en el archivo .env',
+          );
+        }
+
+        return {
+          type: 'postgres' as const,
+          url: databaseUrl,
+          autoLoadEntities: true,
+          synchronize: true,
+          ssl: {
+            rejectUnauthorized: false,
+          },
+          retryAttempts: 5,
+          retryDelay: 3000,
+        };
+      },
+    }),
+
     UsersModule,
     AuthModule,
     CategoriesModule,
     ServiceRequestsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

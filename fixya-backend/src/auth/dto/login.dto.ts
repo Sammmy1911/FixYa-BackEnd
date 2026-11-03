@@ -1,11 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
-export class CreateCategoryDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
+export class LoginDto {
+  @IsEmail({}, { message: 'El correo electrónico no es válido' })
+  email: string;
 
   @IsString()
-  @IsOptional()
-  description?: string;
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  password: string;
 }

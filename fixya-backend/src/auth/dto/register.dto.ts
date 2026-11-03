@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
-import { UserRole } from '../../common/enums/roles.enum';
+import { UserRole } from '../../common/enums/roles.enums.js';
 
 export class RegisterDto {
   @IsEmail({}, { message: 'El correo electrónico no es válido' })
