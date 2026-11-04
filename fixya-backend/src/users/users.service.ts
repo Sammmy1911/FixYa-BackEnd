@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity.js';
+import { TechnicianProfile } from './entities/technician-profile.entity.js';
 import { RegisterDto } from '../auth/dto/register.dto.js';
 import { UserRole } from '../common/enums/roles.enums.js';
 import * as bcrypt from 'bcrypt';
@@ -11,6 +12,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(TechnicianProfile) private readonly profileRepository: Repository<TechnicianProfile>,
   ) {}
 
   async create(registerDto: RegisterDto): Promise<User> {
@@ -29,7 +31,22 @@ export class UsersService {
       role: registerDto.role || UserRole.CLIENT,
     });
 
-    return await this.userRepository.save(newUser);
+    // La transacción crea ambas entidades o ninguna. El usuario no nace verificado.
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await manager.save(User, newUser);
+      if (user.role === UserRole.TECHNICIAN) {
+        await manager.save(TechnicianProfile, manager.create(TechnicianProfile, { user, isVerified: false }));
+      }
+      return user;
+    });
+  }
+
+  async setTechnicianVerified(userId: string, isVerified: boolean) {
+    const profile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+    if (!profile) throw new NotFoundException('Perfil técnico no encontrado');
+    profile.isVerified = isVerified;
+    await this.profileRepository.save(profile);
+    return { technicianId: userId, isVerified: profile.isVerified };
   }
 
   async findAll(): Promise<User[]> {

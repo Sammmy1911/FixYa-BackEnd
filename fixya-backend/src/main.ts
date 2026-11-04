@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
   
   // Habilita CORS para el frontend
-  app.enableCors();
+  app.enableCors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3001' });
 
   await app.listen(process.env.PORT ?? 3000);
 }

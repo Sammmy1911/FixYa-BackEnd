@@ -33,10 +33,8 @@ import { ServiceRequestsModule } from './service-requests/service-requests.modul
           type: 'postgres' as const,
           url: databaseUrl,
           autoLoadEntities: true,
-          synchronize: true,
-          ssl: {
-            rejectUnauthorized: false,
-          },
+          synchronize: configService.get<string>('DB_SYNC') === 'true',
+          ssl: configService.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: true } : false,
           retryAttempts: 5,
           retryDelay: 3000,
         };

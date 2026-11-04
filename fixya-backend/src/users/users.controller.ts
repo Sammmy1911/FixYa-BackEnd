@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe, ParseBoolPipe } from '@nestjs/common';
 import { UsersService } from './users.service.js';
 import { RegisterDto } from '../auth/dto/register.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -21,6 +21,12 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Patch('technicians/:id/verification')
+  @Roles(UserRole.ADMIN)
+  verifyTechnician(@Param('id', ParseUUIDPipe) id: string, @Body('isVerified', ParseBoolPipe) verified: boolean) {
+    return this.usersService.setTechnicianVerified(id, verified);
   }
 
   @Get(':id')

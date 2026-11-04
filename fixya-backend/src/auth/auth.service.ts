@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '../common/enums/roles.enums.js';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
+    if (registerDto.role === UserRole.ADMIN) throw new BadRequestException('No puedes registrarte como administrador');
     const user = await this.usersService.create(registerDto);
     return {
       message: 'Usuario registrado exitosamente',

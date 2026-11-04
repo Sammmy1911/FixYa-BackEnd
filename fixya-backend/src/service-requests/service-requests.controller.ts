@@ -1,34 +1,34 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Param, ParseUUIDPipe, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { ServiceRequestsService } from './service-requests.service.js';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto.js';
-import { UpdateServiceRequestDto } from './dto/update-service-request.dto.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { UserRole } from '../common/enums/roles.enums.js';
+import { ServiceStatus } from '../common/enums/service-status.enum.js';
+type AuthRequest = Request & { user: { userId: string; role: UserRole } };
 
 @Controller('service-requests')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ServiceRequestsController {
-  constructor(private readonly serviceRequestsService: ServiceRequestsService) {}
-
-  @Post()
-  create(@Body() createServiceRequestDto: CreateServiceRequestDto) {
-    return this.serviceRequestsService.create(createServiceRequestDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.serviceRequestsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.serviceRequestsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateServiceRequestDto: UpdateServiceRequestDto) {
-    return this.serviceRequestsService.update(+id, updateServiceRequestDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.serviceRequestsService.remove(+id);
-  }
+  constructor(private readonly service: ServiceRequestsService) {}
+  @Post() @Roles(UserRole.CLIENT)
+  create(@Req() req: AuthRequest, @Body() dto: CreateServiceRequestDto) { return this.service.createForClient(req.user.userId, dto); }
+  @Get('mine') @Roles(UserRole.CLIENT)
+  mineClient(@Req() req: AuthRequest) { return this.service.listForClient(req.user.userId); }
+  @Patch(':id/cancel') @Roles(UserRole.CLIENT)
+  cancel(@Req() req: AuthRequest, @Param('id', ParseUUIDPipe) id: string) { return this.service.cancelForClient(req.user.userId, id); }
+  @Get('technician/available') @Roles(UserRole.TECHNICIAN)
+  available(@Req() req: AuthRequest) { return this.service.available(req.user.userId); }
+  @Get('technician/mine') @Roles(UserRole.TECHNICIAN)
+  mineTech(@Req() req: AuthRequest) { return this.service.mine(req.user.userId); }
+  @Patch('technician/:id/accept') @Roles(UserRole.TECHNICIAN)
+  accept(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) { return this.service.accept(id, req.user.userId); }
+  @Patch('technician/:id/reject') @Roles(UserRole.TECHNICIAN)
+  reject(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) { return this.service.reject(id, req.user.userId); }
+  @Patch('technician/:id/start') @Roles(UserRole.TECHNICIAN)
+  start(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) { return this.service.updateProgress(id, req.user.userId, ServiceStatus.IN_PROGRESS); }
+  @Patch('technician/:id/complete') @Roles(UserRole.TECHNICIAN)
+  complete(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) { return this.service.updateProgress(id, req.user.userId, ServiceStatus.COMPLETED); }
 }
