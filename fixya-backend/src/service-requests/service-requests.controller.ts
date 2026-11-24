@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
 import { ServiceRequestsService } from './service-requests.service.js';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto.js';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto.js';
+import { UpdateStatusDto } from './dto/update-status.dto.js';
 
 @Controller('service-requests')
 export class ServiceRequestsController {
@@ -20,6 +21,12 @@ export class ServiceRequestsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.serviceRequestsService.findOne(+id);
+  }
+
+  // TODO: proteger con JwtAuthGuard + RolesGuard cuando auth esté en develop (PR #3).
+  @Patch(':id/status')
+  updateStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStatusDto) {
+    return this.serviceRequestsService.updateStatus(id, dto.status);
   }
 
   @Patch(':id')
