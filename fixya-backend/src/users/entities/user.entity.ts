@@ -29,9 +29,6 @@ export class User {
   role: UserRole;
 
   @Column({ nullable: true })
-  phone?: string;
-
-  @Column({ nullable: true })
   specialty?: string;
 
   // Ajuste en la relación para evitar error TS2339 si en ServiceRequest se llama 'client' o 'user'
