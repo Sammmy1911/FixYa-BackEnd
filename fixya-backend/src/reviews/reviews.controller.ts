@@ -21,7 +21,8 @@ import { UserRole } from '../common/enums/roles.enums.js';
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  // TODO: anteponer JwtAuthGuard cuando exista auth (puebla req.user); RolesGuard lee req.user.role.
+  // TODO: anteponer JwtAuthGuard cuando exista auth (PR #3). Su JwtStrategy puebla
+  // req.user = { userId, email, role }; RolesGuard lee req.user.role.
   @Post('service-requests/:id/reviews')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -29,10 +30,10 @@ export class ReviewsController {
   create(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateReviewDto,
-    @Req() req: { user?: { id: string } },
+    @Req() req: { user?: { userId: string } },
   ) {
-    if (!req.user?.id) throw new UnauthorizedException();
-    return this.reviewsService.create(req.user.id, id, dto);
+    if (!req.user?.userId) throw new UnauthorizedException();
+    return this.reviewsService.create(req.user.userId, id, dto);
   }
 
   @Get('technicians/:id/reviews')
