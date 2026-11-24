@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { LandingModule } from './landing/landing.module.js';
 import { TechniciansModule } from './technicians/technicians.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -45,6 +46,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     LandingModule,
     TechniciansModule,
     ReviewsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
