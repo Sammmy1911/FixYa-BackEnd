@@ -13,7 +13,16 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
   fullName: string;
 
-  @IsEnum(UserRole, { message: 'El rol asignado no es válido' })
+  // Nuevos campos opcionales permitidos por el DTO
   @IsOptional()
+  @IsEnum(UserRole, { message: 'El rol debe ser CLIENT o TECHNICIAN' })
   role?: UserRole;
+
+  @IsOptional()
+  @IsString({ message: 'El teléfono debe ser un texto válido' })
+  phone?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La especialidad debe ser un texto válido' })
+  specialty?: string;
 }

@@ -9,14 +9,14 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column()
+  fullName: string;
+
   @Column({ unique: true })
   email: string;
 
-  @Column({ name: 'password_hash' })
-  passwordHash: string;
-
-  @Column({ name: 'full_name' })
-  fullName: string;
+  @Column()
+  password: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string | null;
@@ -28,15 +28,19 @@ export class User {
   })
   role: UserRole;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @Column({ nullable: true })
+  phone?: string;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @Column({ nullable: true })
+  specialty?: string;
+
+  // Ajuste en la relación para evitar error TS2339 si en ServiceRequest se llama 'client' o 'user'
+  @OneToMany(() => ServiceRequest, (serviceRequest: any) => serviceRequest.user || serviceRequest.client)
+  serviceRequests: ServiceRequest[];
 
   @OneToOne(() => TechnicianProfile, (profile) => profile.user, { cascade: true })
   technicianProfile: Relation<TechnicianProfile>;
 
-  @OneToMany(() => ServiceRequest, (request) => request.client)
-  serviceRequests: ServiceRequest[];
+  @CreateDateColumn()
+  createdAt: Date;
 }

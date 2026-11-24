@@ -12,6 +12,6 @@ export class Category {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @OneToMany(() => ServiceRequest, (request) => request.category)
+  @OneToMany(() => ServiceRequest, (request: ServiceRequest) => request.category)
   serviceRequests: ServiceRequest[];
 }

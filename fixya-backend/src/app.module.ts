@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -5,8 +6,6 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { UsersModule } from './users/users.module.js';
-import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
-import { CategoriesModule } from './categories/categories.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { LandingModule } from './landing/landing.module.js';
 import { TechniciansModule } from './technicians/technicians.module.js';
@@ -39,6 +38,34 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'fixya-backend',
     }),
+
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+
+        if (!databaseUrl) {
+          throw new Error(
+            'DATABASE_URL no está definida en el archivo .env',
+          );
+        }
+
+        return {
+          type: 'postgres' as const,
+          url: databaseUrl,
+          autoLoadEntities: true,
+          synchronize: true,
+          ssl: {
+            rejectUnauthorized: false,
+          },
+          retryAttempts: 5,
+          retryDelay: 3000,
+        };
+      },
+    }),
+
     UsersModule,
     AuthModule,
     CategoriesModule,
@@ -48,7 +75,5 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ReviewsModule,
     NotificationsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
