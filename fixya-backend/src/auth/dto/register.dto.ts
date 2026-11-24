@@ -1,10 +1,5 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
-
-// Definimos el enum para los roles permitidos
-export enum UserRole {
-  CLIENT = 'CLIENT',
-  TECHNICIAN = 'TECHNICIAN',
-}
+import { UserRole } from '../../common/enums/roles.enums.js';
 
 export class RegisterDto {
   @IsEmail({}, { message: 'El correo electrónico no es válido' })

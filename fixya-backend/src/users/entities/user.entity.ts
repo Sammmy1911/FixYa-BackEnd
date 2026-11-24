@@ -1,11 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, OneToOne } from 'typeorm';
-import { ServiceRequest } from '../../service-requests/entities/service-request.entity.js';
+import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,UpdateDateColumn,OneToOne,OneToMany,type Relation,
+} from 'typeorm';
+import { UserRole } from '../../common/enums/roles.enums.js';
 import { TechnicianProfile } from './technician-profile.entity.js';
-
-export enum UserRole {
-  CLIENT = 'CLIENT',
-  TECHNICIAN = 'TECHNICIAN',
-}
+import { ServiceRequest } from '../../service-requests/entities/service-request.entity.js';
 
 @Entity('users')
 export class User {
@@ -21,7 +18,14 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.CLIENT })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.CLIENT,
+  })
   role: UserRole;
 
   @Column({ nullable: true })
@@ -34,8 +38,8 @@ export class User {
   @OneToMany(() => ServiceRequest, (serviceRequest: any) => serviceRequest.user || serviceRequest.client)
   serviceRequests: ServiceRequest[];
 
-  @OneToOne(() => TechnicianProfile, (profile: any) => profile.user)
-  technicianProfile: TechnicianProfile;
+  @OneToOne(() => TechnicianProfile, (profile) => profile.user, { cascade: true })
+  technicianProfile: Relation<TechnicianProfile>;
 
   @CreateDateColumn()
   createdAt: Date;
