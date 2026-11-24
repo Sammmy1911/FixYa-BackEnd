@@ -1,26 +1,58 @@
-import { Injectable } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserRole } from './entities/user.entity.js';
+import { RegisterDto } from '../auth/dto/register.dto.js';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async create(registerDto: RegisterDto): Promise<User> {
+    const { fullName, email, password, role, phone, specialty } = registerDto;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = this.userRepository.create({
+      fullName,
+      email,
+      password: hashedPassword,
+      role: role || UserRole.CLIENT,
+      phone,
+      specialty,
+    });
+
+    return await this.userRepository.save(newUser);
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findOne({ where: { email } });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findAll(): Promise<User[]> {
+    return await this.userRepository.find();
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async findOne(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+    return user;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async update(id: string, updateData: Partial<User>): Promise<User> {
+    await this.findOne(id);
+    await this.userRepository.update(id, updateData);
+    return this.findOne(id);
+  }
+
+  async remove(id: string): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
   }
 }
