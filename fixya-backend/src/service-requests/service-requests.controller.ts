@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Patch, Post, Param, ParseUUIDPipe, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { ServiceRequestsService } from './service-requests.service.js';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto.js';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -20,6 +21,10 @@ export class ServiceRequestsController {
   mineClient(@Req() req: AuthRequest) { return this.service.listForClient(req.user.userId); }
   @Patch(':id/cancel') @Roles(UserRole.CLIENT)
   cancel(@Req() req: AuthRequest, @Param('id', ParseUUIDPipe) id: string) { return this.service.cancelForClient(req.user.userId, id); }
+  @Get('technician/availability') @Roles(UserRole.TECHNICIAN)
+  getAvailability(@Req() req: AuthRequest) { return this.service.getAvailability(req.user.userId); }
+  @Patch('technician/availability') @Roles(UserRole.TECHNICIAN)
+  setAvailability(@Req() req: AuthRequest, @Body() dto: UpdateAvailabilityDto) { return this.service.setAvailability(req.user.userId, dto); }
   @Get('technician/available') @Roles(UserRole.TECHNICIAN)
   available(@Req() req: AuthRequest) { return this.service.available(req.user.userId); }
   @Get('technician/mine') @Roles(UserRole.TECHNICIAN)

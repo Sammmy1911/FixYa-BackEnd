@@ -93,3 +93,5 @@ Mantener ambas terminales abiertas mientras se utiliza FixYa.
 - No activar DB_SYNC=true en bases de datos existentes.
 - Si se utiliza una base de datos anterior de FG-15, revisar
   sql/001-integracion-sprint-2.sql antes de actualizarla.
+
+Para una base existente, aplicar tambien `sql/002-fg23-disponibilidad.sql` antes de iniciar el backend actualizado (DB_SYNC=false).
