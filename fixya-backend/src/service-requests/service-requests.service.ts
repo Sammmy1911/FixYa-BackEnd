@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Logger, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Logger, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ServiceRequest } from './entities/service-request.entity.js';
@@ -6,6 +6,7 @@ import { RequestRejection } from './entities/request-rejection.entity.js';
 import { TechnicianProfile } from '../users/entities/technician-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Category } from '../categories/entities/category.entity.js';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto.js';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { STATUS_LABEL } from './status-transitions.js';
@@ -68,20 +69,75 @@ private async notifyStatus(id: string, status: ServiceStatus) {
     return profile;
   }
 
+  async getAvailability(userId: string) {
+    const profile = await this.technicianFor(userId);
+    return { autoAvailable: profile.autoAvailable, coverageZones: profile.coverageZones, coverageCategories: profile.coverageCategories };
+  }
+
+  async setAvailability(userId: string, input: UpdateAvailabilityDto) {
+    const profile = await this.technicianFor(userId);
+    const coverageZones = [...new Set(input.coverageZones.map(zone => zone.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean))];
+    const coverageCategories = [...new Set(input.coverageCategories)];
+    if (input.autoAvailable && (!coverageZones.length || !coverageCategories.length)) {
+      throw new BadRequestException('Selecciona al menos un barrio y una categoría');
+    }
+    for (const id of coverageCategories) {
+      if (!await this.categories.findOneBy({ id })) throw new BadRequestException('Categoría inválida');
+    }
+    const values = { autoAvailable: input.autoAvailable, coverageZones, coverageCategories };
+    const result = await this.profiles.update({ id: profile.id, isVerified: true }, values);
+    if (result.affected !== 1) throw new ForbiddenException('Perfil no autorizado');
+    return values;
+  }
+
+  // A recommendation is advisory, calculated from current data, never a reservation.
+  // The existing conditional UPDATE in accept() is the only definitive assignment.
+  private async recommendations(ids: string[]): Promise<Map<string, string>> {
+    if (!ids.length) return new Map();
+    const rows: { request_id: string; technician_id: string }[] = await this.requests.query(`
+      SELECT r.id AS request_id, candidate.id AS technician_id
+      FROM service_requests r
+      CROSS JOIN LATERAL (
+        SELECT p.id
+        FROM technician_profiles p
+        JOIN users u ON u.id = p.user_id AND u.role = 'technician'
+        WHERE p.is_verified AND p.auto_available
+          AND r.category_id = ANY(p.coverage_categories)
+          AND EXISTS (SELECT 1 FROM unnest(p.coverage_zones) AS zone(name)
+            WHERE translate(lower(regexp_replace(btrim(zone.name), '\\s+', ' ', 'g')), 'áéíóúüñ', 'aeiouun') =
+                  translate(lower(regexp_replace(btrim(r.neighborhood), '\\s+', ' ', 'g')), 'áéíóúüñ', 'aeiouun'))
+          AND NOT EXISTS (SELECT 1 FROM service_requests active
+            WHERE active.technician_id = p.id AND active.status IN ('accepted', 'in_progress'))
+          AND NOT EXISTS (SELECT 1 FROM service_request_rejections rejection
+            WHERE rejection.request_id = r.id AND rejection.technician_id = p.id)
+        ORDER BY (SELECT max(previous.updated_at) FROM service_requests previous
+                  WHERE previous.technician_id = p.id) ASC NULLS FIRST, p.id ASC
+        LIMIT 1
+      ) candidate
+      WHERE r.id = ANY($1::uuid[]) AND r.status = 'pending' AND r.technician_id IS NULL
+        AND r.neighborhood IS NOT NULL AND btrim(r.neighborhood) <> ''
+    `, [ids]);
+    return new Map(rows.map(row => [row.request_id, row.technician_id]));
+  }
+
   async createForClient(userId: string, input: CreateServiceRequestDto) {
     const category = await this.categories.findOneBy({ id: input.categoryId });
     if (!category) throw new NotFoundException('Categoría no encontrada');
-    return this.requests.save(this.requests.create({
+    const request = await this.requests.save(this.requests.create({
       description: input.description.trim(), address: input.address.trim(),
       neighborhood: input.neighborhood?.trim() || null, phone: input.phone || null,
       urgency: input.urgency || 'asap', category,
       status: ServiceStatus.PENDING, client: { id: userId } as User,
     }));
+    const recommended = await this.recommendations(request.id ? [request.id] : []);
+    return { ...request, hasRecommendation: recommended.has(request.id) };
   }
 
-  listForClient(userId: string) {
-    return this.requests.find({ where: { client: { id: userId } },
+  async listForClient(userId: string) {
+    const requests = await this.requests.find({ where: { client: { id: userId } },
       relations: { category: true }, order: { createdAt: 'DESC' } });
+    const recommended = await this.recommendations(requests.filter(r => r.status === ServiceStatus.PENDING).map(r => r.id));
+    return requests.map(request => ({ ...request, hasRecommendation: recommended.has(request.id) }));
   }
 
   async cancelForClient(userId: string, id: string) {
@@ -97,7 +153,7 @@ private async notifyStatus(id: string, status: ServiceStatus) {
 
   async available(userId: string) {
     const technician = await this.technicianFor(userId);
-    return this.requests.createQueryBuilder('request')
+    const requests = await this.requests.createQueryBuilder('request')
       .leftJoinAndSelect('request.category', 'category')
       .where('request.status = :status', { status: ServiceStatus.PENDING })
       .andWhere('request.technician_id IS NULL')
@@ -108,6 +164,9 @@ private async notifyStatus(id: string, status: ServiceStatus) {
         return `NOT EXISTS ${sql}`;
       }).setParameter('technicianId', technician.id)
       .orderBy('request.createdAt', 'DESC').getMany();
+    const recommended = await this.recommendations(requests.map(r => r.id));
+    return requests.map(request => ({ ...request, recommendedForMe: recommended.get(request.id) === technician.id }))
+      .sort((a, b) => Number(b.recommendedForMe) - Number(a.recommendedForMe));
   }
 
   async mine(userId: string) {
@@ -124,6 +183,7 @@ private async notifyStatus(id: string, status: ServiceStatus) {
       .where('id = :requestId', { requestId })
       .andWhere('status = :pending', { pending: ServiceStatus.PENDING })
       .andWhere('technician_id IS NULL')
+      .andWhere('EXISTS (SELECT 1 FROM technician_profiles p WHERE p.id = :technicianId AND p.is_verified = true)', { technicianId: technician.id })
       .andWhere(`NOT EXISTS (SELECT 1 FROM service_request_rejections r
         WHERE r.request_id = :requestId AND r.technician_id = :technicianId)`,
         { technicianId: technician.id }).execute();

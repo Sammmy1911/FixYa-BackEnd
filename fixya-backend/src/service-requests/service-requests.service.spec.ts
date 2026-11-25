@@ -11,7 +11,7 @@ describe('FG-15 — reglas de solicitudes', () => {
     const findOne = vi.fn().mockResolvedValue({ id: 'req', status: options.status ?? ServiceStatus.PENDING, technician: null, client: { phone: null } });
     const repo: any = { createQueryBuilder: vi.fn().mockReturnValue(builder), findOne, find: vi.fn().mockResolvedValue([]), create: vi.fn(x=>x), save: vi.fn(x=>Promise.resolve(x)) };
     const rejectionRepo: any = { createQueryBuilder: vi.fn().mockReturnValue({ insert: () => ({ values: () => ({ orIgnore: () => ({ execute: vi.fn().mockResolvedValue({}) }) }) }) }) };
-    const profiles: any = { findOne: vi.fn().mockResolvedValue({ id:'tech-profile', isVerified: options.verified ?? true }) };
+    const profiles: any = { update: vi.fn().mockResolvedValue({ affected: 1 }), findOne: vi.fn().mockResolvedValue({ id:'tech-profile', isVerified: options.verified ?? true }) };
     const categories: any = { findOneBy: vi.fn().mockResolvedValue({id:1,name:'Plomería'}) };
     const service = new ServiceRequestsService(repo, rejectionRepo, profiles, categories, { notify: vi.fn() } as any);
     return { service, execute, repo, profiles, categories };
@@ -33,6 +33,25 @@ describe('FG-15 — reglas de solicitudes', () => {
     const {service} = make();
     await expect(service.createForClient('client-user',{description:'Fuga en el lavamanos',address:'Cali, calle 10',categoryId:1}))
       .resolves.toMatchObject({status: ServiceStatus.PENDING,client:{id:'client-user'}});
+  });
+  it('exige zonas y categorías para activar recomendaciones', async () => {
+    const { service } = make();
+    await expect(service.setAvailability('tech-user', { autoAvailable: true, coverageZones: [], coverageCategories: [] })).rejects.toThrow('Selecciona');
+  });
+  it('guarda preferencias sin duplicados', async () => {
+    const { service, profiles } = make();
+    await expect(service.setAvailability('tech-user', { autoAvailable: true, coverageZones: [' Granada ', 'granada'], coverageCategories: [1,1] })).resolves.toEqual({ autoAvailable: true, coverageZones: ['granada'], coverageCategories: [1] });
+    expect(profiles.update).toHaveBeenCalledOnce();
+  });
+  it('no permite configurar un perfil sin verificar', async () => {
+    const { service } = make({verified:false});
+    await expect(service.getAvailability('tech-user')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('muestra recomendación sin cambiar el estado pendiente', async () => {
+    const { service, repo } = make();
+    repo.find.mockResolvedValue([{ id: 'req', status: ServiceStatus.PENDING }]);
+    repo.query = vi.fn().mockResolvedValue([{request_id:'req', technician_id:'tech-profile'}]);
+    await expect(service.listForClient('client-user')).resolves.toEqual([{id:'req', status:ServiceStatus.PENDING, hasRecommendation:true}]);
   });
   it('impide publicar en una categoría inexistente', async () => {
     const {service,categories} = make(); categories.findOneBy.mockResolvedValue(null);

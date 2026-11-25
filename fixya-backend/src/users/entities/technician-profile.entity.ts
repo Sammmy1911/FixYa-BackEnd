@@ -20,6 +20,15 @@ export class TechnicianProfile {
   @Column('text', { array: true, nullable: true, name: 'documents_url' })
   documentsUrl: string[];
 
+  @Column({ name: 'auto_available', default: false })
+  autoAvailable: boolean;
+
+  @Column('text', { name: 'coverage_zones', array: true, default: () => "'{}'" })
+  coverageZones: string[];
+
+  @Column('integer', { name: 'coverage_categories', array: true, default: () => "'{}'" })
+  coverageCategories: number[];
+
   @Column({ default: false, name: 'is_verified' })
   isVerified: boolean;
 
