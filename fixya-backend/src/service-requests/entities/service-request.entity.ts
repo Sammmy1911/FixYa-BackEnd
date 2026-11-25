@@ -28,6 +28,15 @@ export class ServiceRequest {
   @Column({ type: 'text' })
   address: string;
 
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  neighborhood: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  phone: string | null;
+
+  @Column({ type: 'varchar', length: 16, default: 'asap' })
+  urgency: string;
+
   @Column({
     type: 'enum',
     enum: ServiceStatus,

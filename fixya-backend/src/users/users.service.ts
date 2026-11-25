@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserRole } from './entities/user.entity.js';
+import { User } from './entities/user.entity.js';
+import { UserRole } from '../common/enums/roles.enums.js';
+import { TechnicianProfile } from './entities/technician-profile.entity.js';
 import { RegisterDto } from '../auth/dto/register.dto.js';
 import * as bcrypt from 'bcrypt';
 
@@ -15,22 +17,36 @@ export class UsersService {
   async create(registerDto: RegisterDto): Promise<User> {
     const { fullName, email, password, role, phone, specialty } = registerDto;
 
+    if (await this.findByEmail(email)) throw new ConflictException('Correo ya registrado');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = this.userRepository.create({
       fullName,
-      email,
+      email: email.trim().toLowerCase(),
       password: hashedPassword,
       role: role || UserRole.CLIENT,
-      phone,
+      phone: phone ?? null,
       specialty,
     });
 
-    return await this.userRepository.save(newUser);
+    return this.userRepository.manager.transaction(async manager => {
+      const user = await manager.save(User, newUser);
+      if (user.role === UserRole.TECHNICIAN) await manager.save(TechnicianProfile, manager.create(TechnicianProfile, { user, isVerified: false }));
+      return user;
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return await this.userRepository.findOne({ where: { email } });
+    return await this.userRepository.findOne({ where: { email: email.trim().toLowerCase() } });
+  }
+
+  async setTechnicianVerified(userId: string, isVerified: boolean) {
+    const repo = this.userRepository.manager.getRepository(TechnicianProfile);
+    const profile = await repo.findOne({ where: { user: { id: userId } } });
+    if (!profile) throw new NotFoundException('Perfil técnico no encontrado');
+    profile.isVerified = isVerified;
+    await repo.save(profile);
+    return { technicianId: userId, isVerified };
   }
 
   async findAll(): Promise<User[]> {

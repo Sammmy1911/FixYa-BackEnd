@@ -48,7 +48,7 @@ describe('TechniciansService', () => {
     const saved = repo.save.mock.calls[0][0];
     expect(saved.role).toBe(UserRole.TECHNICIAN);
     expect(saved.email).toBe('tec@mail.com');
-    expect(saved.passwordHash).not.toBe(dto.password);
+    expect(saved.password).not.toBe(dto.password);
     expect(saved.technicianProfile.isVerified).toBe(false);
     expect(result).not.toHaveProperty('passwordHash');
     expect(result.technicianProfile.documentsCount).toBe(1);
