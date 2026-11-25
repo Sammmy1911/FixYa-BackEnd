@@ -40,9 +40,25 @@ export class UsersService {
     return await this.userRepository.findOne({ where: { email: email.trim().toLowerCase() } });
   }
 
+  async listTechnicians() {
+    const profiles = await this.userRepository.manager.getRepository(TechnicianProfile).find({
+      relations: { user: true },
+      where: { user: { role: UserRole.TECHNICIAN } },
+      order: { createdAt: 'DESC' },
+    });
+    return profiles.map(profile => ({
+      id: profile.user.id,
+      fullName: profile.user.fullName,
+      email: profile.user.email,
+      specialty: profile.user.specialty ?? null,
+      isVerified: profile.isVerified,
+      documentCount: profile.documentsUrl?.length ?? 0,
+    }));
+  }
+
   async setTechnicianVerified(userId: string, isVerified: boolean) {
     const repo = this.userRepository.manager.getRepository(TechnicianProfile);
-    const profile = await repo.findOne({ where: { user: { id: userId } } });
+    const profile = await repo.findOne({ where: { user: { id: userId, role: UserRole.TECHNICIAN } } });
     if (!profile) throw new NotFoundException('Perfil técnico no encontrado');
     profile.isVerified = isVerified;
     await repo.save(profile);

@@ -25,6 +25,12 @@ export class UsersController {
     return (await this.usersService.findAll()).map(user => this.safeUser(user));
   }
 
+  @Get('technicians')
+  @Roles(UserRole.ADMIN)
+  listTechnicians() {
+    return this.usersService.listTechnicians();
+  }
+
   @Patch('technicians/:id/verification')
   @Roles(UserRole.ADMIN)
   verifyTechnician(@Param('id', ParseUUIDPipe) id: string, @Body('isVerified', ParseBoolPipe) verified: boolean) {
