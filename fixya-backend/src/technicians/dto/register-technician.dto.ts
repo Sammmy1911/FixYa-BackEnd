@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterTechnicianDto {
   @IsEmail()
@@ -13,4 +13,14 @@ export class RegisterTechnicianDto {
   @IsNotEmpty()
   @MaxLength(120)
   fullName: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[0-9]{10,15}$/)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  specialty?: string;
 }

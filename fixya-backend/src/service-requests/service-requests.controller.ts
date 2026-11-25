@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../common/enums/roles.enums.js';
 import { UpdateStatusDto } from './dto/update-status.dto.js';
+import { WarrantyRequestDto, PaidAmountDto } from './dto/history-actions.dto.js';
 import { ServiceStatus } from '../common/enums/service-status.enum.js';
 type AuthRequest = Request & { user: { userId: string; role: UserRole } };
 
@@ -17,8 +18,18 @@ export class ServiceRequestsController {
   constructor(private readonly service: ServiceRequestsService) {}
   @Post() @Roles(UserRole.CLIENT)
   create(@Req() req: AuthRequest, @Body() dto: CreateServiceRequestDto) { return this.service.createForClient(req.user.userId, dto); }
+  @Get('admin/all') @Roles(UserRole.ADMIN)
+  adminAll() { return this.service.listForAdmin(); }
   @Get('mine') @Roles(UserRole.CLIENT)
   mineClient(@Req() req: AuthRequest) { return this.service.listForClient(req.user.userId); }
+  @Post(':id/warranty') @Roles(UserRole.CLIENT)
+  warranty(@Req() req: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Body() dto: WarrantyRequestDto) {
+    return this.service.requestWarranty(req.user.userId, id, dto.reason);
+  }
+  @Patch(':id/paid-amount') @Roles(UserRole.CLIENT)
+  paidAmount(@Req() req: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Body() dto: PaidAmountDto) {
+    return this.service.reportPaidAmount(req.user.userId, id, dto.amount);
+  }
   @Patch(':id/cancel') @Roles(UserRole.CLIENT)
   cancel(@Req() req: AuthRequest, @Param('id', ParseUUIDPipe) id: string) { return this.service.cancelForClient(req.user.userId, id); }
   @Get('technician/availability') @Roles(UserRole.TECHNICIAN)

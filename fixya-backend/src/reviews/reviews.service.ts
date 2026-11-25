@@ -49,7 +49,10 @@ export class ReviewsService {
         client: { id: clientId },
         technician: { id: request.technician.id },
       }),
-    );
+    ).catch((error: unknown) => {
+      if ((error as { code?: string }).code === "23505") throw new ConflictException("El servicio ya fue reseñado");
+      throw error;
+    });
     await this.refreshRating(request.technician.id);
     return review;
   }

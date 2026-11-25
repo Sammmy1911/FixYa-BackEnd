@@ -44,6 +44,15 @@ export class ServiceRequest {
   })
   status: ServiceStatus;
 
+  @Column({ type: 'uuid', name: 'warranty_of_id', nullable: true, unique: true })
+  warrantyOfId: string | null;
+
+  @Column({ type: 'integer', name: 'paid_amount', nullable: true })
+  paidAmount: number | null;
+
+  @Column({ type: 'timestamp', name: 'completed_at', nullable: true })
+  completedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
