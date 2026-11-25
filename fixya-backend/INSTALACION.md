@@ -1,4 +1,4 @@
-﻿# FixYa - Guia de instalacion
+# FixYa - Guia de instalacion
 
 ## 1. Requisitos
 
@@ -95,3 +95,9 @@ Mantener ambas terminales abiertas mientras se utiliza FixYa.
   sql/001-integracion-sprint-2.sql antes de actualizarla.
 
 Para una base existente, aplicar tambien `sql/002-fg23-disponibilidad.sql` antes de iniciar el backend actualizado (DB_SYNC=false).
+
+## Cierre Sprint 2
+
+Ejecutar `sql/003-sprint2-cierre.sql` sobre bases existentes antes de arrancar el backend (incluye los campos de historial y garantía). No borra datos. En una base inicializada con synchronize, ejecutar también para asegurar la FK de garantía. La garantía crea una solicitud pendiente vinculada al servicio original; se admite una por servicio completado original, sin fecha de expiración definida para este MVP. El monto pagado es autodeclarado por el cliente, no un pago procesado.
+
+Notificaciones: avisos internos persistentes, privados por usuario, con contador y lectura. No se envia WhatsApp ni se necesitan credenciales externas. Los avisos antiguos sin destinatario no se exponen a clientes ni tecnicos.

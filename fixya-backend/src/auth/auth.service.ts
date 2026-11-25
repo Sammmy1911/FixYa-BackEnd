@@ -15,6 +15,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     if (registerDto.role === UserRole.ADMIN) throw new ForbiddenException('Registro público de administradores no permitido');
+    if (registerDto.role === UserRole.TECHNICIAN) throw new ForbiddenException('El registro de tecnicos requiere documentos en /technicians/register');
     const user = await this.usersService.create(registerDto);
     return {
       message: 'Usuario registrado exitosamente',

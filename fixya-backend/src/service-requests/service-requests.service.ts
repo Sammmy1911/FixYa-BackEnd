@@ -24,43 +24,17 @@ export class ServiceRequestsService {
   ) {}
 
 private async notifyStatus(id: string, status: ServiceStatus) {
-  try {
-    const request = await this.requests.findOne({
-      where: { id },
-      relations: {
-        client: true,
-        technician: { user: true },
-      },
-    });
-
-    if (!request) return;
-
-    const message = `Tu servicio cambió a estado: ${STATUS_LABEL[status]}`;
-
-    const phones = new Set(
-      [
-        request.phone?.trim() || request.client?.phone?.trim(),
-        request.technician?.user?.phone?.trim(),
-      ].filter((phone): phone is string => Boolean(phone)),
-    );
-
-    for (const phone of phones) {
-      try {
-        await this.notifications.notify(phone, message, id);
-      } catch (error) {
-        this.logger.error(
-          'No se pudo enviar una notificación',
-          error,
-        );
+    try {
+      const request = await this.requests.findOne({ where: { id }, relations: { client: true, technician: { user: true } } });
+      if (!request) return;
+      const recipients = new Set([request.client?.id, request.technician?.user?.id].filter((value): value is string => Boolean(value)));
+      const message = `Tu servicio (${id.slice(0, 8)}) cambio a estado: ${STATUS_LABEL[status]}`;
+      for (const recipient of recipients) {
+        try { await this.notifications.notifyInApp(recipient, message, id); }
+        catch (error) { this.logger.error('No se pudo guardar una notificacion interna', error); }
       }
-    }
-  } catch (error) {
-    this.logger.error(
-      'No se pudo registrar notificación',
-      error,
-    );
+    } catch (error) { this.logger.error('No se pudo consultar el servicio para notificar', error); }
   }
-}
 
   private async technicianFor(userId: string) {
     const profile = await this.profiles.findOne({ where: { user: { id: userId } } });
@@ -135,9 +109,72 @@ private async notifyStatus(id: string, status: ServiceStatus) {
 
   async listForClient(userId: string) {
     const requests = await this.requests.find({ where: { client: { id: userId } },
-      relations: { category: true }, order: { createdAt: 'DESC' } });
+      relations: { category: true, technician: { user: true } }, order: { createdAt: 'DESC' } });
     const recommended = await this.recommendations(requests.filter(r => r.status === ServiceStatus.PENDING).map(r => r.id));
-    return requests.map(request => ({ ...request, hasRecommendation: recommended.has(request.id) }));
+    const completedIds = requests.filter(r => r.status === ServiceStatus.COMPLETED).map(r => r.id);
+    const reviewed = new Set<string>();
+    const warranties = new Map<string, string>();
+    if (completedIds.length) {
+      const reviews: { id: string }[] = await this.requests.query('SELECT service_request_id AS id FROM reviews WHERE service_request_id = ANY($1::uuid[])', [completedIds]);
+      const claims: { original: string; id: string }[] = await this.requests.query('SELECT warranty_of_id AS original, id FROM service_requests WHERE warranty_of_id = ANY($1::uuid[])', [completedIds]);
+      reviews.forEach(row => reviewed.add(row.id));
+      claims.forEach(row => warranties.set(row.original, row.id));
+    }
+    return requests.map(request => ({ ...this.publicRequest(request), hasRecommendation: recommended.has(request.id), hasReview: reviewed.has(request.id), warrantyRequestId: warranties.get(request.id) ?? null }));
+  }
+
+  // Explicit DTO: never serialize password hashes or private technician documents.
+  private publicRequest(request: ServiceRequest) {
+    const tech = request.technician;
+    return {
+      id: request.id, status: request.status, description: request.description,
+      address: request.address, neighborhood: request.neighborhood, phone: request.phone,
+      urgency: request.urgency, createdAt: request.createdAt, updatedAt: request.updatedAt,
+      completedAt: request.completedAt ?? null, paidAmount: request.paidAmount ?? null, warrantyOfId: request.warrantyOfId ?? null,
+      category: request.category ? { id: request.category.id, name: request.category.name } : null,
+      technician: tech ? { id: tech.id, fullName: tech.user?.fullName, phone: tech.user?.phone } : null,
+    };
+  }
+
+  async listForAdmin() {
+    const requests = await this.requests.find({
+      relations: { category: true, technician: { user: true } }, order: { createdAt: 'DESC' },
+    });
+    return requests.map(request => this.publicRequest(request));
+  }
+
+  async requestWarranty(userId: string, id: string, reason: string) {
+    const text = reason.trim();
+    if (text.length < 10 || text.length > 500) throw new BadRequestException('Explica el motivo en 10 a 500 caracteres');
+    const result = await this.requests.manager.transaction(async manager => {
+      const repo = manager.getRepository(ServiceRequest);
+      const locked = await repo.createQueryBuilder('request')
+        .where('request.id = :id AND request.client_id = :userId', { id, userId })
+        .setLock('pessimistic_write').getOne();
+      if (!locked) throw new NotFoundException('Servicio no encontrado');
+      if (locked.status !== ServiceStatus.COMPLETED) throw new ConflictException('Solo puedes pedir garantia de un servicio completado');
+      if (locked.warrantyOfId) throw new ConflictException('Contacta soporte para dar seguimiento a esta garantia');
+      if (await repo.findOneBy({ warrantyOfId: id })) throw new ConflictException('Ya solicitaste garantia para este servicio');
+      const original = await repo.findOne({ where: { id }, relations: { category: true } });
+      if (!original?.category) throw new ConflictException('El servicio no tiene categoria disponible');
+      const claim = await repo.save(repo.create({
+        client: { id: userId } as User, category: original.category, status: ServiceStatus.PENDING,
+        description: `Garantia del servicio ${id}: ${text}`, address: original.address,
+        neighborhood: original.neighborhood, phone: original.phone, urgency: 'asap', warrantyOfId: id,
+      }));
+      return { id: claim.id, status: claim.status };
+    });
+    try { await this.notifications.notifyInApp(userId, 'Recibimos tu solicitud de garantia. Te asignaremos un tecnico lo antes posible.', result.id); }
+    catch (error) { this.logger.error('No se pudo guardar el aviso de garantia', error); }
+    return result;
+  }
+
+  async reportPaidAmount(userId: string, id: string, amount: number) {
+    const result = await this.requests.createQueryBuilder().update(ServiceRequest).set({ paidAmount: amount })
+      .where('id = :id', { id }).andWhere('client_id = :userId', { userId })
+      .andWhere('status = :status', { status: ServiceStatus.COMPLETED }).execute();
+    if (result.affected !== 1) throw new ConflictException('Solo puedes registrar el valor de un servicio propio completado');
+    return { id, paidAmount: amount };
   }
 
   async cancelForClient(userId: string, id: string) {
@@ -208,7 +245,7 @@ private async notifyStatus(id: string, status: ServiceStatus) {
     const technician = await this.technicianFor(userId);
     const current = target === ServiceStatus.IN_PROGRESS ? ServiceStatus.ACCEPTED : ServiceStatus.IN_PROGRESS;
     const result = await this.requests.createQueryBuilder().update(ServiceRequest)
-      .set({ status: target }).where('id = :requestId', { requestId })
+      .set({ status: target, ...(target === ServiceStatus.COMPLETED ? { completedAt: new Date() } : {}) }).where('id = :requestId', { requestId })
       .andWhere('technician_id = :technicianId', { technicianId: technician.id })
       .andWhere('status = :current', { current }).execute();
     if (result.affected !== 1) throw new ConflictException('Transición inválida o solicitud no asignada');

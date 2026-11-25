@@ -14,6 +14,12 @@ export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'uuid', name: 'recipient_id', nullable: true })
+  recipientId: string | null;
+
+  @Column({ type: 'timestamp', name: 'read_at', nullable: true })
+  readAt: Date | null;
+
   @Column({ type: 'text', nullable: true })
   phone: string | null;
 

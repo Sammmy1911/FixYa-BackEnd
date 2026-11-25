@@ -51,7 +51,7 @@ describe('FG-15 — reglas de solicitudes', () => {
     const { service, repo } = make();
     repo.find.mockResolvedValue([{ id: 'req', status: ServiceStatus.PENDING }]);
     repo.query = vi.fn().mockResolvedValue([{request_id:'req', technician_id:'tech-profile'}]);
-    await expect(service.listForClient('client-user')).resolves.toEqual([{id:'req', status:ServiceStatus.PENDING, hasRecommendation:true}]);
+    await expect(service.listForClient('client-user')).resolves.toMatchObject([{id:'req', status:ServiceStatus.PENDING, hasRecommendation:true}]);
   });
   it('impide publicar en una categoría inexistente', async () => {
     const {service,categories} = make(); categories.findOneBy.mockResolvedValue(null);

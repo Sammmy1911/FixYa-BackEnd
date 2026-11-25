@@ -48,6 +48,8 @@ export class TechniciansService {
           password: passwordHash,
           fullName: dto.fullName.trim(),
           role: UserRole.TECHNICIAN,
+          phone: dto.phone ?? null,
+          specialty: dto.specialty,
           technicianProfile: {
             documentsUrl: storedNames,
             isVerified: false,
@@ -69,6 +71,7 @@ export class TechniciansService {
       };
     } catch (error) {
       await deleteDocuments(storedNames); // no dejar archivos huérfanos
+      if ((error as { code?: string }).code === "23505") throw new ConflictException("Ya existe una cuenta con ese correo");
       throw error;
     }
   }
