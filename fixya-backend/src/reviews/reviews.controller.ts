@@ -14,6 +14,7 @@ import {
 import { ReviewsService } from './reviews.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { UserRole } from '../common/enums/roles.enums.js';
 
@@ -25,7 +26,7 @@ export class ReviewsController {
   // req.user = { userId, email, role }; RolesGuard lee req.user.role.
   @Post('service-requests/:id/reviews')
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CLIENT)
   create(
     @Param('id', ParseUUIDPipe) id: string,

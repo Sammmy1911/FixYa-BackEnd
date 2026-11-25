@@ -45,7 +45,7 @@ export class TechniciansService {
       const user = await this.users.save(
         this.users.create({
           email,
-          passwordHash,
+          password: passwordHash,
           fullName: dto.fullName.trim(),
           role: UserRole.TECHNICIAN,
           technicianProfile: {

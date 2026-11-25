@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe, ParseBoolPipe } from '@nestjs/common';
 import { UsersService } from './users.service.js';
 import { RegisterDto } from '../auth/dto/register.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -11,28 +11,36 @@ import { UserRole } from '../common/enums/roles.enums.js';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  private safeUser<T extends { password: string }>(user: T) { const { password, ...safe } = user; return safe; }
+
   @Post()
   @Roles(UserRole.ADMIN)
-  create(@Body() registerDto: RegisterDto) {
-    return this.usersService.create(registerDto);
+  async create(@Body() registerDto: RegisterDto) {
+    return this.safeUser(await this.usersService.create(registerDto));
   }
 
   @Get()
   @Roles(UserRole.ADMIN)
-  findAll() {
-    return this.usersService.findAll();
+  async findAll() {
+    return (await this.usersService.findAll()).map(user => this.safeUser(user));
+  }
+
+  @Patch('technicians/:id/verification')
+  @Roles(UserRole.ADMIN)
+  verifyTechnician(@Param('id', ParseUUIDPipe) id: string, @Body('isVerified', ParseBoolPipe) verified: boolean) {
+    return this.usersService.setTechnicianVerified(id, verified);
   }
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return this.safeUser(await this.usersService.findOne(id));
   }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() updateData: any) {
-    return this.usersService.update(id, updateData);
+  async update(@Param('id') id: string, @Body() updateData: any) {
+    return this.safeUser(await this.usersService.update(id, updateData));
   }
 
   @Delete(':id')

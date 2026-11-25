@@ -1,4 +1,5 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { UserRole } from '../common/enums/roles.enums.js';
 import { UsersService } from '../users/users.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -13,6 +14,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
+    if (registerDto.role === UserRole.ADMIN) throw new ForbiddenException('Registro público de administradores no permitido');
     const user = await this.usersService.create(registerDto);
     return {
       message: 'Usuario registrado exitosamente',
